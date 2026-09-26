@@ -180,11 +180,92 @@ with tab_dash:
               delta=f"-{total_bloqueados} fuera de servicio" if total_bloqueados else None)
     c4.metric("🔎 Inspecciones", len(inspecciones))
 
-    if inspecciones:
+    col_a, col_b = st.columns(2)
+
+    with col_a:
+        st.subheader("Elementos por categoría")
+        if elementos:
+            conteo_cat = {}
+            for el in elementos:
+                conteo_cat[el["categoria"]] = conteo_cat.get(el["categoria"], 0) + 1
+            st.bar_chart(conteo_cat)
+        else:
+            st.caption("Aún no hay elementos registrados.")
+
+    with col_b:
         st.subheader("Inspecciones por estado")
-        conteo_estado = {}
+        if inspecciones:
+            conteo_estado = {}
+            for i in inspecciones:
+                conteo_estado[i["estado"]] = conteo_estado.get(i["estado"], 0) + 1
+            st.bar_chart(conteo_estado)
+        else:
+            st.caption("Aún no hay inspecciones registradas.")
+
+    st.subheader("Inspecciones por categoría")
+    if inspecciones:
+        conteo_cat_insp = {}
         for i in inspecciones:
-            conteo_estado[i["estado"]] = conteo_estado.get(i["estado"], 0) + 1
-        st.bar_chart(conteo_estado)
+            conteo_cat_insp[i["categoria"]] = conteo_cat_insp.get(i["categoria"], 0) + 1
+        st.bar_chart(conteo_cat_insp)
     else:
         st.caption("Aún no hay inspecciones registradas.")
+
+    # ============================================================
+    # REPORTE PDF
+    # ============================================================
+    st.divider()
+    st.subheader("📄 Reporte en PDF")
+
+    def generar_pdf():
+        from fpdf import FPDF
+        from datetime import datetime
+
+        ahora = datetime.now()
+        pdf = FPDF()
+        pdf.add_page()
+        pdf.set_font("Helvetica", "B", 16)
+        pdf.cell(0, 10, "Reporte ObraSegura", ln=True, align="C")
+        pdf.set_font("Helvetica", "", 10)
+        pdf.cell(0, 8, f"Generado el: {ahora.strftime('%Y-%m-%d %H:%M:%S')}", ln=True, align="C")
+        pdf.ln(6)
+
+        pdf.set_font("Helvetica", "B", 12)
+        pdf.cell(0, 8, "Resumen general", ln=True)
+        pdf.set_font("Helvetica", "", 11)
+        pdf.cell(0, 7, f"Empresas registradas: {len(empresas)}", ln=True)
+        pdf.cell(0, 7, f"Trabajadores registrados: {len(trabajadores)}", ln=True)
+        pdf.cell(0, 7, f"Elementos registrados: {len(elementos)} ({total_bloqueados} fuera de servicio)", ln=True)
+        pdf.cell(0, 7, f"Inspecciones realizadas: {len(inspecciones)}", ln=True)
+        pdf.ln(6)
+
+        if inspecciones:
+            pdf.set_font("Helvetica", "B", 12)
+            pdf.cell(0, 8, "Detalle de inspecciones", ln=True)
+            pdf.set_font("Helvetica", "", 9)
+            for i in inspecciones:
+                linea = (
+                    f"{i['fecha_inspeccion']} | {i['categoria']} | {i['elemento']} "
+                    f"(Serial: {i['serial']}) | Responsable: {i['responsable']} | Estado: {i['estado']}"
+                )
+                pdf.multi_cell(0, 6, linea)
+            pdf.ln(4)
+
+        if elementos:
+            pdf.set_font("Helvetica", "B", 12)
+            pdf.cell(0, 8, "Elementos registrados", ln=True)
+            pdf.set_font("Helvetica", "", 9)
+            for el in elementos:
+                estado_el = "Activo" if el["activo"] else "Fuera de servicio"
+                pdf.multi_cell(0, 6, f"{el['nombre']} | {el['categoria']} | Serial: {el['serial']} | {estado_el}")
+
+        return bytes(pdf.output())
+
+    if st.button("🧾 Generar reporte PDF"):
+        pdf_bytes = generar_pdf()
+        st.download_button(
+            "⬇️ Descargar PDF",
+            data=pdf_bytes,
+            file_name=f"reporte_obrasegura_{date.today().isoformat()}.pdf",
+            mime="application/pdf"
+        )
