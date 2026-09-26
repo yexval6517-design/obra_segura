@@ -221,43 +221,50 @@ with tab_dash:
         from fpdf import FPDF
         from datetime import datetime
 
+        def limpio(texto):
+            # Evita caracteres que la fuente básica del PDF no puede dibujar
+            return str(texto).encode("latin-1", "replace").decode("latin-1")
+
         ahora = datetime.now()
         pdf = FPDF()
+        pdf.set_auto_page_break(auto=True, margin=15)
         pdf.add_page()
+        ancho = pdf.epw  # ancho útil de la página (ya descuenta los márgenes)
+
         pdf.set_font("Helvetica", "B", 16)
-        pdf.cell(0, 10, "Reporte ObraSegura", ln=True, align="C")
+        pdf.cell(ancho, 10, limpio("Reporte ObraSegura"), new_x="LMARGIN", new_y="NEXT", align="C")
         pdf.set_font("Helvetica", "", 10)
-        pdf.cell(0, 8, f"Generado el: {ahora.strftime('%Y-%m-%d %H:%M:%S')}", ln=True, align="C")
+        pdf.cell(ancho, 8, limpio(f"Generado el: {ahora.strftime('%Y-%m-%d %H:%M:%S')}"), new_x="LMARGIN", new_y="NEXT", align="C")
         pdf.ln(6)
 
         pdf.set_font("Helvetica", "B", 12)
-        pdf.cell(0, 8, "Resumen general", ln=True)
+        pdf.cell(ancho, 8, limpio("Resumen general"), new_x="LMARGIN", new_y="NEXT")
         pdf.set_font("Helvetica", "", 11)
-        pdf.cell(0, 7, f"Empresas registradas: {len(empresas)}", ln=True)
-        pdf.cell(0, 7, f"Trabajadores registrados: {len(trabajadores)}", ln=True)
-        pdf.cell(0, 7, f"Elementos registrados: {len(elementos)} ({total_bloqueados} fuera de servicio)", ln=True)
-        pdf.cell(0, 7, f"Inspecciones realizadas: {len(inspecciones)}", ln=True)
+        pdf.cell(ancho, 7, limpio(f"Empresas registradas: {len(empresas)}"), new_x="LMARGIN", new_y="NEXT")
+        pdf.cell(ancho, 7, limpio(f"Trabajadores registrados: {len(trabajadores)}"), new_x="LMARGIN", new_y="NEXT")
+        pdf.cell(ancho, 7, limpio(f"Elementos registrados: {len(elementos)} ({total_bloqueados} fuera de servicio)"), new_x="LMARGIN", new_y="NEXT")
+        pdf.cell(ancho, 7, limpio(f"Inspecciones realizadas: {len(inspecciones)}"), new_x="LMARGIN", new_y="NEXT")
         pdf.ln(6)
 
         if inspecciones:
             pdf.set_font("Helvetica", "B", 12)
-            pdf.cell(0, 8, "Detalle de inspecciones", ln=True)
+            pdf.cell(ancho, 8, limpio("Detalle de inspecciones"), new_x="LMARGIN", new_y="NEXT")
             pdf.set_font("Helvetica", "", 9)
             for i in inspecciones:
                 linea = (
                     f"{i['fecha_inspeccion']} | {i['categoria']} | {i['elemento']} "
                     f"(Serial: {i['serial']}) | Responsable: {i['responsable']} | Estado: {i['estado']}"
                 )
-                pdf.multi_cell(0, 6, linea)
+                pdf.multi_cell(ancho, 6, limpio(linea))
             pdf.ln(4)
 
         if elementos:
             pdf.set_font("Helvetica", "B", 12)
-            pdf.cell(0, 8, "Elementos registrados", ln=True)
+            pdf.cell(ancho, 8, limpio("Elementos registrados"), new_x="LMARGIN", new_y="NEXT")
             pdf.set_font("Helvetica", "", 9)
             for el in elementos:
                 estado_el = "Activo" if el["activo"] else "Fuera de servicio"
-                pdf.multi_cell(0, 6, f"{el['nombre']} | {el['categoria']} | Serial: {el['serial']} | {estado_el}")
+                pdf.multi_cell(ancho, 6, limpio(f"{el['nombre']} | {el['categoria']} | Serial: {el['serial']} | {estado_el}"))
 
         return bytes(pdf.output())
 
