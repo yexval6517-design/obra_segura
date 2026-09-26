@@ -115,30 +115,28 @@ formulario_elementos("Estructuras", tab_estructuras)
 # INSPECCIONES
 # ============================================================
 with tab_insp:
-    categoria_insp = st.selectbox("¿Qué se va a inspeccionar?", CATEGORIAS, key="cat_insp")
-
-    if categoria_insp == "EPP":
-        opciones_resp = [t["nombre"] for t in trabajadores]
-        aviso_resp = "Registra trabajadores en la pestaña 👷 Trabajadores."
-    else:
-        opciones_resp = [e["nombre"] for e in empresas]
-        aviso_resp = "Registra empresas en la pestaña 🏢 Empresas."
-
+    # El elemento se elige entre TODAS las categorías juntas (EPP, Equipos de alturas, Estructuras)
     opciones_elementos = [
-        f'{el["nombre"]} | Serial: {el["serial"]}'
-        for el in elementos if el["categoria"] == categoria_insp and el["activo"]
+        f'{el["nombre"]} | {el["categoria"]} | Serial: {el["serial"]}'
+        for el in elementos if el["activo"]
     ]
 
-    if not opciones_resp:
-        st.warning(f"⚠️ No hay responsables disponibles para '{categoria_insp}'. {aviso_resp}")
-    if not opciones_elementos:
-        st.warning(f"⚠️ No hay elementos disponibles en '{categoria_insp}'. Registra uno en la pestaña correspondiente.")
+    # El responsable puede ser un trabajador o una empresa, sin importar la categoría del elemento
+    opciones_resp = (
+        [f'{t["nombre"]} (Trabajador)' for t in trabajadores]
+        + [f'{e["nombre"]} (Empresa)' for e in empresas]
+    )
 
-    if opciones_resp and opciones_elementos:
+    if not opciones_elementos:
+        st.warning("⚠️ No hay elementos disponibles todavía. Registra al menos uno en las pestañas 🦺 EPP, 🧗 Equipos de alturas o 🏗️ Estructuras.")
+    if not opciones_resp:
+        st.warning("⚠️ No hay responsables disponibles. Registra un trabajador o una empresa primero.")
+
+    if opciones_elementos and opciones_resp:
         with st.form("form_inspeccion", clear_on_submit=True):
             fecha_inspeccion = st.date_input("Fecha de inspección", value=date.today())
             responsable = st.selectbox("👤 Responsable", opciones_resp)
-            elemento_sel = st.selectbox("🧰 Elemento", opciones_elementos)
+            elemento_sel = st.selectbox("🧰 Elemento a inspeccionar", opciones_elementos)
             disponible = st.radio("¿Está disponible?", ["Sí", "No"])
             estado = st.selectbox("Estado", ["Óptimo", "Requiere cambio"])
             observaciones = st.text_area("Observaciones", placeholder="Ejemplo: Costuras sueltas")
@@ -148,12 +146,12 @@ with tab_insp:
             if st.form_submit_button("💾 Registrar inspección"):
                 elemento_encontrado = next(
                     el for el in elementos
-                    if f'{el["nombre"]} | Serial: {el["serial"]}' == elemento_sel
+                    if f'{el["nombre"]} | {el["categoria"]} | Serial: {el["serial"]}' == elemento_sel
                 )
                 fecha_reposicion = fecha_inspeccion.isoformat() if estado == "Requiere cambio" else ""
 
                 inspecciones.append({
-                    "fecha_inspeccion": fecha_inspeccion.isoformat(), "categoria": categoria_insp,
+                    "fecha_inspeccion": fecha_inspeccion.isoformat(), "categoria": elemento_encontrado["categoria"],
                     "responsable": responsable, "elemento": elemento_encontrado["nombre"],
                     "serial": elemento_encontrado["serial"], "disponible": disponible,
                     "estado": estado, "observaciones": observaciones,
