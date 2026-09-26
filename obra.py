@@ -188,7 +188,7 @@ with tab_dash:
             conteo_cat = {}
             for el in elementos:
                 conteo_cat[el["categoria"]] = conteo_cat.get(el["categoria"], 0) + 1
-            st.bar_chart(conteo_cat)
+            st.bar_chart(conteo_cat, height=280)
         else:
             st.caption("Aún no hay elementos registrados.")
 
@@ -198,7 +198,7 @@ with tab_dash:
             conteo_estado = {}
             for i in inspecciones:
                 conteo_estado[i["estado"]] = conteo_estado.get(i["estado"], 0) + 1
-            st.bar_chart(conteo_estado)
+            st.bar_chart(conteo_estado, height=280)
         else:
             st.caption("Aún no hay inspecciones registradas.")
 
@@ -207,7 +207,7 @@ with tab_dash:
         conteo_cat_insp = {}
         for i in inspecciones:
             conteo_cat_insp[i["categoria"]] = conteo_cat_insp.get(i["categoria"], 0) + 1
-        st.bar_chart(conteo_cat_insp)
+        st.bar_chart(conteo_cat_insp, height=280)
     else:
         st.caption("Aún no hay inspecciones registradas.")
 
@@ -220,14 +220,28 @@ with tab_dash:
     def generar_pdf():
         from fpdf import FPDF
         from datetime import datetime
+        import matplotlib.pyplot as plt
+        import io
 
         def limpio(texto):
             # Evita caracteres que la fuente básica del PDF no puede dibujar
             return str(texto).encode("latin-1", "replace").decode("latin-1")
 
+        def grafico_a_imagen(datos, titulo):
+            fig, ax = plt.subplots(figsize=(7, 3))
+            ax.bar(list(datos.keys()), list(datos.values()), color="#4c72b0")
+            ax.set_title(titulo)
+            fig.tight_layout()
+            buffer = io.BytesIO()
+            fig.savefig(buffer, format="png", dpi=150)
+            plt.close(fig)
+            buffer.seek(0)
+            return buffer
+
         ahora = datetime.now()
         pdf = FPDF()
-        pdf.set_auto_page_break(auto=True, margin=15)
+        pdf.set_margins(left=18, top=15, right=18)
+        pdf.set_auto_page_break(auto=True, margin=18)
         pdf.add_page()
         ancho = pdf.epw  # ancho útil de la página (ya descuenta los márgenes)
 
@@ -237,6 +251,7 @@ with tab_dash:
         pdf.cell(ancho, 8, limpio(f"Generado el: {ahora.strftime('%Y-%m-%d %H:%M:%S')}"), new_x="LMARGIN", new_y="NEXT", align="C")
         pdf.ln(6)
 
+        # ---------- Resumen general ----------
         pdf.set_font("Helvetica", "B", 12)
         pdf.cell(ancho, 8, limpio("Resumen general"), new_x="LMARGIN", new_y="NEXT")
         pdf.set_font("Helvetica", "", 11)
@@ -244,27 +259,73 @@ with tab_dash:
         pdf.cell(ancho, 7, limpio(f"Trabajadores registrados: {len(trabajadores)}"), new_x="LMARGIN", new_y="NEXT")
         pdf.cell(ancho, 7, limpio(f"Elementos registrados: {len(elementos)} ({total_bloqueados} fuera de servicio)"), new_x="LMARGIN", new_y="NEXT")
         pdf.cell(ancho, 7, limpio(f"Inspecciones realizadas: {len(inspecciones)}"), new_x="LMARGIN", new_y="NEXT")
-        pdf.ln(6)
+        pdf.ln(4)
 
-        if inspecciones:
-            pdf.set_font("Helvetica", "B", 12)
-            pdf.cell(ancho, 8, limpio("Detalle de inspecciones"), new_x="LMARGIN", new_y="NEXT")
-            pdf.set_font("Helvetica", "", 9)
-            for i in inspecciones:
-                linea = (
-                    f"{i['fecha_inspeccion']} | {i['categoria']} | {i['elemento']} "
-                    f"(Serial: {i['serial']}) | Responsable: {i['responsable']} | Estado: {i['estado']}"
-                )
-                pdf.multi_cell(ancho, 6, limpio(linea))
+        # ---------- Gráficas ----------
+        if elementos:
+            conteo_cat = {}
+            for el in elementos:
+                conteo_cat[el["categoria"]] = conteo_cat.get(el["categoria"], 0) + 1
+            img = grafico_a_imagen(conteo_cat, "Elementos por categoría")
+            pdf.image(img, w=ancho)
             pdf.ln(4)
 
+        if inspecciones:
+            conteo_estado = {}
+            for i in inspecciones:
+                conteo_estado[i["estado"]] = conteo_estado.get(i["estado"], 0) + 1
+            img = grafico_a_imagen(conteo_estado, "Inspecciones por estado")
+            pdf.image(img, w=ancho)
+            pdf.ln(4)
+
+            conteo_cat_insp = {}
+            for i in inspecciones:
+                conteo_cat_insp[i["categoria"]] = conteo_cat_insp.get(i["categoria"], 0) + 1
+            img = grafico_a_imagen(conteo_cat_insp, "Inspecciones por categoría")
+            pdf.image(img, w=ancho)
+            pdf.ln(4)
+
+        # ---------- Tabla: inspecciones ----------
+        if inspecciones:
+            pdf.add_page()
+            pdf.set_font("Helvetica", "B", 12)
+            pdf.cell(ancho, 8, limpio("Detalle de inspecciones"), new_x="LMARGIN", new_y="NEXT")
+            pdf.ln(2)
+            pdf.set_font("Helvetica", "", 8)
+
+            encabezados = ["Fecha", "Categoría", "Elemento", "Serial", "Responsable", "Estado"]
+            filas = [encabezados] + [
+                [i["fecha_inspeccion"], i["categoria"], i["elemento"], i["serial"], i["responsable"], i["estado"]]
+                for i in inspecciones
+            ]
+            filas_limpias = [[limpio(c) for c in fila] for fila in filas]
+
+            with pdf.table(width=ancho, text_align="LEFT") as tabla:
+                for fila in filas_limpias:
+                    fila_tabla = tabla.row()
+                    for celda in fila:
+                        fila_tabla.cell(celda)
+            pdf.ln(4)
+
+        # ---------- Tabla: elementos ----------
         if elementos:
             pdf.set_font("Helvetica", "B", 12)
             pdf.cell(ancho, 8, limpio("Elementos registrados"), new_x="LMARGIN", new_y="NEXT")
-            pdf.set_font("Helvetica", "", 9)
-            for el in elementos:
-                estado_el = "Activo" if el["activo"] else "Fuera de servicio"
-                pdf.multi_cell(ancho, 6, limpio(f"{el['nombre']} | {el['categoria']} | Serial: {el['serial']} | {estado_el}"))
+            pdf.ln(2)
+            pdf.set_font("Helvetica", "", 8)
+
+            encabezados_el = ["Nombre", "Categoría", "Serial", "Estado"]
+            filas_el = [encabezados_el] + [
+                [el["nombre"], el["categoria"], el["serial"], "Activo" if el["activo"] else "Fuera de servicio"]
+                for el in elementos
+            ]
+            filas_el_limpias = [[limpio(c) for c in fila] for fila in filas_el]
+
+            with pdf.table(width=ancho, text_align="LEFT") as tabla:
+                for fila in filas_el_limpias:
+                    fila_tabla = tabla.row()
+                    for celda in fila:
+                        fila_tabla.cell(celda)
 
         return bytes(pdf.output())
 
