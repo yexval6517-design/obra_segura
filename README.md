@@ -4,6 +4,6 @@ Sistema para el registro y control de seguridad en obras de construcción. Permi
 
 📊 Incluye un dashboard con gráficas de elementos por categoría, inspecciones por estado y por categoría, y permite descargar un reporte en PDF con fecha y hora de generación.
 
-🚀 Ver la app en vivo: https://obrasegura-xliflmjrroaumeuvsqjhm3.streamlit.app
+🚀 Ver la app en vivo: https://obrasegura-xliflmjrroaumeuvsqjhm3.streamlit.app (Si ves un emoji de Zzzz, presiona el botón azul para despertarla y poder usarla)
 
 🛠️ Tecnologías: Python, Streamlit, Matplotlib, FPDF2
